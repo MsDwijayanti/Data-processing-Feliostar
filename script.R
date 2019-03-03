@@ -20,21 +20,23 @@ library(growthcurver)
 #NEED TO CHECK THIS SECTION
 a<-100 #points, the number of time points measurement
 d<-15 #min, the duration of each time points
+type<-2 #pick the type of machine you used, 1 for Fluostar and 2 for Clariostar
+
+#rawdata_length<-3+a #if you are processing output data from Clariostar
+# #if you are processing output data from Fluostar
 
 #import platemap
 platemap<-read_excel("platemap.xlsx")
-
 Time= seq(0, (a-1)*d, d)
-
-rawdata_length<-3+a
+rawdata_length<-type+1+a
 
 #Abs600 processing
 Abs600_raw<-read_excel("Abs600.xlsx", col_names=F, skip=12)
 Abs600_annotated<-bind_cols(Abs600_raw, platemap)
-Abs600_subset<-select(Abs600_annotated, c(4:rawdata_length))
+Abs600_subset<-select(Abs600_annotated, c((type+2):rawdata_length))
 colnames(Abs600_subset)<-Time
 Abs600_blank<-filter(Abs600_annotated, content=='medium')
-Abs600_blank_mean<-select(Abs600_blank, c(4:rawdata_length))%>%
+Abs600_blank_mean<-select(Abs600_blank, c((type+2):rawdata_length))%>%
   summarise_all(.funs = (mean))
 normalised_Abs600<-sweep(as.matrix(Abs600_subset),2,as.matrix(Abs600_blank_mean), "-")
 Abs600_corrected<-bind_cols(platemap, as.data.frame(normalised_Abs600))
@@ -51,13 +53,13 @@ parameter<-SummarizeGrowthByPlate(combined, plot_fit = T, plot_file = "fit.pdf")
 #GFP processing
 GFP_raw<-read_excel("GFP.xlsx", col_names=F, skip=12)
 GFP_annotated<-bind_cols(GFP_raw, platemap)
-GFP_subset<-select(GFP_annotated, c(4:rawdata_length))
+GFP_subset<-select(GFP_annotated, c((type+2):rawdata_length))
 colnames(GFP_subset)<-Time
 GFP_autofluorescence<-filter(GFP_annotated, content=='negative')
 
 
 #GFP autofluorescence simple correction 
-GFP_blank_mean<-select(GFP_autofluorescence, c(4:rawdata_length))%>%
+GFP_blank_mean<-select(GFP_autofluorescence, c((type+2):rawdata_length))%>%
   summarise_all(.funs = (mean))
 normalised_GFP<-sweep(as.matrix(GFP_subset),2,as.matrix(GFP_blank_mean), "-")
 GFP_corrected<-bind_cols(platemap, as.data.frame(normalised_GFP))
