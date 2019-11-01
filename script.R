@@ -1,8 +1,7 @@
 #A simple data processing for plate reader assay by Ari
 
 #install packages
-install.packages(c("tidyverse","readr","ggplot2","readxl", "growthcurver" ))
-
+install.packages(c("tidyverse","readr","ggplot2","readxl", "growthcurver", "data.table", "devtools", "tibbletime", "dplyr"))
 
 #load library
 library(tidyverse)
@@ -18,18 +17,14 @@ library(dplyr)
 library(growthcurver)
 
 #NEED TO CHECK THIS SECTION
-a<-100 #points, the number of time points measurement
+a<-80 #points, the number of time points measurement
 d<-15 #min, the duration of each time points
 type<-2 #pick the type of machine you used, 1 for Fluostar and 2 for Clariostar
-
-#rawdata_length<-3+a #if you are processing output data from Clariostar
-# #if you are processing output data from Fluostar
 
 #import platemap
 platemap<-read_excel("platemap.xlsx")
 Time= seq(0, (a-1)*d, d)
 rawdata_length<-type+1+a
-
 #Abs600 processing
 Abs600_raw<-read_excel("Abs600.xlsx", col_names=F, skip=12)
 Abs600_annotated<-bind_cols(Abs600_raw, platemap)
@@ -42,13 +37,16 @@ normalised_Abs600<-sweep(as.matrix(Abs600_subset),2,as.matrix(Abs600_blank_mean)
 Abs600_corrected<-bind_cols(platemap, as.data.frame(normalised_Abs600))
 write.csv(Abs600_corrected, "Abs600_corrected.csv")
 
-#growth parameterisation using logistic fitting by growthcurver, plot still inverted
+#growth parameterisation using logistic fitting by growthcurver
 transformed<-as.data.frame(t(normalised_Abs600))
 tTime=as.data.frame(Time)
 combined<-bind_cols(tTime, transformed)
 colnames(combined)<-c("time", platemap$well)
-parameter<-SummarizeGrowthByPlate(combined, plot_fit = T, plot_file = "fit.pdf")
-
+parameter_report<-SummarizeGrowthByPlate(combined)
+write.csv(parameter_report,"growth_parameter.csv")
+mplate<-growthdata
+comb_new<-combined[,c(names(mplate))]
+parameter<-SummarizeGrowthByPlate(comb_new, plot_fit = T, plot_file = "fit.pdf")
 
 #GFP processing
 GFP_raw<-read_excel("GFP.xlsx", col_names=F, skip=12)
@@ -56,8 +54,6 @@ GFP_annotated<-bind_cols(GFP_raw, platemap)
 GFP_subset<-select(GFP_annotated, c((type+2):rawdata_length))
 colnames(GFP_subset)<-Time
 GFP_autofluorescence<-filter(GFP_annotated, content=='negative')
-
-
 #GFP autofluorescence simple correction 
 GFP_blank_mean<-select(GFP_autofluorescence, c((type+2):rawdata_length))%>%
   summarise_all(.funs = (mean))
@@ -70,4 +66,3 @@ FlperAbs600<-normalised_GFP/normalised_Abs600
 colnames(FlperAbs600)<-Time
 FlperAbs600<-bind_cols(platemap, as.data.frame(FlperAbs600))
 write.csv(FlperAbs600, "FlperAbs600.csv")
-
